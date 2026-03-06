@@ -292,6 +292,7 @@ export async function startTeamV2(config) {
                 id: String(idx + 1), subject: t.subject, description: t.description,
             })),
             cwd: leaderCwd,
+            ...(config.rolePrompt ? { bootstrapInstructions: config.rolePrompt } : {}),
         });
     }
     // Create tmux session (leader only — workers spawned below)

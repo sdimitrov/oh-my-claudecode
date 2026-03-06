@@ -38,11 +38,11 @@ describe('worker-bootstrap', () => {
         });
         it('does not include bootstrap instructions when not provided', () => {
             const overlay = generateWorkerOverlay(baseParams);
-            expect(overlay).not.toContain('Additional Instructions');
+            expect(overlay).not.toContain('Role Context');
         });
         it('includes bootstrap instructions when provided', () => {
             const overlay = generateWorkerOverlay({ ...baseParams, bootstrapInstructions: 'Focus on TypeScript' });
-            expect(overlay).toContain('Additional Instructions');
+            expect(overlay).toContain('Role Context');
             expect(overlay).toContain('Focus on TypeScript');
         });
         it('includes explicit worker-not-leader prohibitions', () => {

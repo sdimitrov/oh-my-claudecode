@@ -72,6 +72,8 @@ export interface StartTeamV2Config {
         blocked_by?: string[];
     }>;
     cwd: string;
+    roleName?: string;
+    rolePrompt?: string;
 }
 /**
  * Start a team with the v2 event-driven runtime.

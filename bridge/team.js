@@ -1634,7 +1634,7 @@ ${agentTypeGuidance(agentType)}
 You MUST call \`omc team api transition-task-status\` to mark your task as "completed" or "failed" before exiting.
 If you skip this step, the leader cannot track your work and the task will appear stuck.
 
-${bootstrapInstructions ? `## Additional Instructions
+${bootstrapInstructions ? `## Role Context
 ${bootstrapInstructions}
 ` : ""}`;
 }
@@ -2144,7 +2144,8 @@ async function startTeamV2(config) {
         subject: t.subject,
         description: t.description
       })),
-      cwd: leaderCwd
+      cwd: leaderCwd,
+      ...config.rolePrompt ? { bootstrapInstructions: config.rolePrompt } : {}
     });
   }
   const session = await createTeamSession(sanitized, 0, leaderCwd);
@@ -4557,7 +4558,7 @@ Usage:
   omc team resume <team_name> [--json] [--cwd DIR]
   omc team shutdown <team_name> [--force] [--json] [--cwd DIR]
   omc team api <operation> [--input '<json>'] [--json] [--cwd DIR]
-  omc team [ralph] <N:agent-type> "task" [--json] [--cwd DIR]
+  omc team [ralph] <N:agent-type[:role]> "task" [--json] [--cwd DIR]
 
 Examples:
   omc team start --agent codex --count 2 --task "review auth flow"
@@ -4883,11 +4884,12 @@ function parseLegacyStartAlias(args) {
   }
   const spec = args[index];
   if (!spec) return null;
-  const match = spec.match(/^(\d+):([a-zA-Z0-9_-]+)$/);
+  const match = spec.match(/^(\d+):([a-zA-Z0-9_-]+)(?::([a-zA-Z0-9_-]+))?$/);
   if (!match) return null;
   const workerCount = toInt(match[1], "worker-count");
   if (workerCount < 1) throw new Error("worker-count must be >= 1");
   const agentType = normalizeAgentType(match[2]);
+  const role = match[3] || void 0;
   index += 1;
   let json = false;
   let cwd = process.cwd();
@@ -4916,6 +4918,7 @@ function parseLegacyStartAlias(args) {
   return {
     workerCount,
     agentType,
+    role,
     task,
     teamName: autoTeamName(task),
     ralph,

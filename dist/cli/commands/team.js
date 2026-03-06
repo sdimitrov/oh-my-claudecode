@@ -12,18 +12,22 @@ const HELP_TOKENS = new Set(['--help', '-h', 'help']);
 const MIN_WORKER_COUNT = 1;
 const MAX_WORKER_COUNT = 20;
 const TEAM_HELP = `
-Usage: omc team [N:agent-type] "<task description>"
+Usage: omc team [N:agent-type[:role]] "<task description>"
        omc team status <team-name>
        omc team shutdown <team-name> [--force]
        omc team api <operation> [--input <json>] [--json]
        omc team api --help
 
 Examples:
-  omc team 3:executor "fix failing tests"
-  omc team 2:claude "build the auth module"
+  omc team 3:claude "fix failing tests"
+  omc team 2:codex:architect "design auth system"
+  omc team 1:gemini:executor "implement feature"
   omc team status fix-failing-tests
   omc team shutdown fix-failing-tests
   omc team api send-message --input '{"team_name":"my-team","from_worker":"worker-1","to_worker":"leader-fixed","body":"ACK"}' --json
+
+Roles (optional): architect, executor, planner, analyst, critic, debugger, verifier,
+  code-reviewer, security-reviewer, test-engineer, build-fixer, designer, writer, scientist
 `;
 const TEAM_API_HELP = `
 Usage: omc team api <operation> [--input <json>] [--json]
@@ -124,7 +128,8 @@ function parseTeamArgs(tokens) {
         }
     }
     const first = filteredArgs[0] || '';
-    const match = first.match(/^(\d+)(?::([a-z][a-z0-9-]*))?$/i);
+    const match = first.match(/^(\d+)(?::([a-z][a-z0-9-]*)(?::([a-z][a-z0-9-]*))?)?$/i);
+    let role;
     if (match) {
         const count = Number.parseInt(match[1], 10);
         if (!Number.isFinite(count) || count < MIN_WORKER_COUNT || count > MAX_WORKER_COUNT) {
@@ -133,6 +138,8 @@ function parseTeamArgs(tokens) {
         workerCount = count;
         if (match[2])
             agentType = match[2];
+        if (match[3])
+            role = match[3];
         filteredArgs.shift();
     }
     const task = filteredArgs.join(' ').trim();
@@ -140,7 +147,7 @@ function parseTeamArgs(tokens) {
         throw new Error('Usage: omc team [N:agent-type] "<task description>"');
     }
     const teamName = slugifyTask(task);
-    return { workerCount, agentType, task, teamName, json };
+    return { workerCount, agentType, role, task, teamName, json };
 }
 function sampleValueForField(field) {
     switch (field) {
@@ -273,6 +280,12 @@ async function handleTeamStart(parsed, cwd) {
             owner: `worker-${i + 1}`,
         });
     }
+    // Load role prompt if a role was specified (e.g., 3:codex:architect)
+    let rolePrompt;
+    if (parsed.role) {
+        const { loadAgentPrompt } = await import('../../agents/utils.js');
+        rolePrompt = loadAgentPrompt(parsed.role);
+    }
     // Use v2 runtime by default (OMC_RUNTIME_V2 opt-out), otherwise fall back to v1
     const { isRuntimeV2Enabled } = await import('../../team/runtime-v2.js');
     if (isRuntimeV2Enabled()) {
@@ -284,6 +297,7 @@ async function handleTeamStart(parsed, cwd) {
             agentTypes,
             tasks,
             cwd,
+            ...(rolePrompt ? { roleName: parsed.role, rolePrompt } : {}),
         });
         if (parsed.json) {
             const snapshot = await monitorTeamV2(runtime.teamName, cwd);

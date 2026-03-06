@@ -4010,6 +4010,22 @@ var init_loader = __esm({
 });
 
 // src/agents/utils.ts
+var utils_exports = {};
+__export(utils_exports, {
+  OPEN_QUESTIONS_PATH: () => OPEN_QUESTIONS_PATH,
+  buildDelegationTable: () => buildDelegationTable,
+  buildKeyTriggersSection: () => buildKeyTriggersSection,
+  buildUseAvoidSection: () => buildUseAvoidSection,
+  createAgentToolRestrictions: () => createAgentToolRestrictions,
+  createEnvContext: () => createEnvContext,
+  deepMerge: () => deepMerge2,
+  formatOpenQuestions: () => formatOpenQuestions,
+  getAvailableAgents: () => getAvailableAgents,
+  loadAgentPrompt: () => loadAgentPrompt,
+  mergeAgentConfig: () => mergeAgentConfig,
+  parseDisallowedTools: () => parseDisallowedTools,
+  validateAgentConfig: () => validateAgentConfig
+});
 function getPackageDir() {
   if (typeof __dirname !== "undefined" && __dirname) {
     const currentDirName = (0, import_path3.basename)(__dirname);
@@ -4063,6 +4079,105 @@ function loadAgentPrompt(agentName) {
 Prompt unavailable.`;
   }
 }
+function createAgentToolRestrictions(blockedTools) {
+  const restrictions = {};
+  for (const tool2 of blockedTools) {
+    restrictions[tool2.toLowerCase()] = false;
+  }
+  return { tools: restrictions };
+}
+function mergeAgentConfig(base, override) {
+  const { prompt_append, ...rest } = override;
+  const merged = {
+    ...base,
+    ...rest.model && { model: rest.model },
+    ...rest.enabled !== void 0 && { enabled: rest.enabled }
+  };
+  if (prompt_append && merged.prompt) {
+    merged.prompt = merged.prompt + "\n\n" + prompt_append;
+  }
+  return merged;
+}
+function buildDelegationTable(availableAgents) {
+  if (availableAgents.length === 0) {
+    return "";
+  }
+  const rows = availableAgents.filter((a) => a.metadata.triggers.length > 0).map((a) => {
+    const triggers = a.metadata.triggers.map((t) => `${t.domain}: ${t.trigger}`).join("; ");
+    return `| ${a.metadata.promptAlias || a.name} | ${a.metadata.cost} | ${triggers} |`;
+  });
+  if (rows.length === 0) {
+    return "";
+  }
+  return `### Agent Delegation Table
+
+| Agent | Cost | When to Use |
+|-------|------|-------------|
+${rows.join("\n")}`;
+}
+function buildUseAvoidSection(metadata) {
+  const sections = [];
+  if (metadata.useWhen && metadata.useWhen.length > 0) {
+    sections.push(`**USE when:**
+${metadata.useWhen.map((u) => `- ${u}`).join("\n")}`);
+  }
+  if (metadata.avoidWhen && metadata.avoidWhen.length > 0) {
+    sections.push(`**AVOID when:**
+${metadata.avoidWhen.map((a) => `- ${a}`).join("\n")}`);
+  }
+  return sections.join("\n\n");
+}
+function createEnvContext() {
+  const now = /* @__PURE__ */ new Date();
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+  const timeStr = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+  return `
+<env-context>
+  Current time: ${timeStr}
+  Timezone: ${timezone}
+  Locale: ${locale}
+</env-context>`;
+}
+function getAvailableAgents(agents) {
+  return Object.entries(agents).filter(([_, config2]) => config2.metadata).map(([name, config2]) => ({
+    name,
+    description: config2.description,
+    metadata: config2.metadata
+  }));
+}
+function buildKeyTriggersSection(availableAgents) {
+  const triggers = [];
+  for (const agent of availableAgents) {
+    for (const trigger of agent.metadata.triggers) {
+      triggers.push(`- **${trigger.domain}** \u2192 ${agent.metadata.promptAlias || agent.name}: ${trigger.trigger}`);
+    }
+  }
+  if (triggers.length === 0) {
+    return "";
+  }
+  return `### Key Triggers (CHECK BEFORE ACTING)
+
+${triggers.join("\n")}`;
+}
+function validateAgentConfig(config2) {
+  const errors = [];
+  if (!config2.name) {
+    errors.push("Agent name is required");
+  }
+  if (!config2.description) {
+    errors.push("Agent description is required");
+  }
+  if (!config2.prompt) {
+    errors.push("Agent prompt is required");
+  }
+  return errors;
+}
 function parseDisallowedTools(agentName) {
   if (!/^[a-z0-9-]+$/i.test(agentName)) {
     return void 0;
@@ -4086,13 +4201,39 @@ function parseDisallowedTools(agentName) {
     return void 0;
   }
 }
-var import_fs3, import_path3, import_url;
+function formatOpenQuestions(topic, questions) {
+  if (questions.length === 0) return "";
+  const date3 = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  const items = questions.map((q) => `- [ ] ${q.question} \u2014 ${q.reason}`).join("\n");
+  return `
+## ${topic} - ${date3}
+${items}
+`;
+}
+function deepMerge2(target, source) {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    const sourceValue = source[key];
+    const targetValue = target[key];
+    if (sourceValue && typeof sourceValue === "object" && !Array.isArray(sourceValue) && targetValue && typeof targetValue === "object" && !Array.isArray(targetValue)) {
+      result[key] = deepMerge2(
+        targetValue,
+        sourceValue
+      );
+    } else if (sourceValue !== void 0) {
+      result[key] = sourceValue;
+    }
+  }
+  return result;
+}
+var import_fs3, import_path3, import_url, OPEN_QUESTIONS_PATH;
 var init_utils = __esm({
   "src/agents/utils.ts"() {
     "use strict";
     import_fs3 = require("fs");
     import_path3 = require("path");
     import_url = require("url");
+    OPEN_QUESTIONS_PATH = ".omc/plans/open-questions.md";
   }
 });
 
@@ -21967,7 +22108,7 @@ ${agentTypeGuidance(agentType)}
 You MUST call \`omc team api transition-task-status\` to mark your task as "completed" or "failed" before exiting.
 If you skip this step, the leader cannot track your work and the task will appear stuck.
 
-${bootstrapInstructions ? `## Additional Instructions
+${bootstrapInstructions ? `## Role Context
 ${bootstrapInstructions}
 ` : ""}`;
 }
@@ -22478,7 +22619,8 @@ async function startTeamV2(config2) {
         subject: t.subject,
         description: t.description
       })),
-      cwd: leaderCwd
+      cwd: leaderCwd,
+      ...config2.rolePrompt ? { bootstrapInstructions: config2.rolePrompt } : {}
     });
   }
   const session = await createTeamSession(sanitized, 0, leaderCwd);
@@ -55641,7 +55783,7 @@ async function addCustomNote(projectRoot, category, content) {
 function isPlainObject3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date) && !(value instanceof RegExp);
 }
-function deepMerge2(base, incoming) {
+function deepMerge3(base, incoming) {
   const result = { ...base };
   for (const key of Object.keys(incoming)) {
     const baseVal = base[key];
@@ -55651,7 +55793,7 @@ function deepMerge2(base, incoming) {
       continue;
     }
     if (isPlainObject3(baseVal) && isPlainObject3(incomingVal)) {
-      result[key] = deepMerge2(baseVal, incomingVal);
+      result[key] = deepMerge3(baseVal, incomingVal);
       continue;
     }
     if (Array.isArray(baseVal) && Array.isArray(incomingVal)) {
@@ -55735,7 +55877,7 @@ function mergeScalarArray(base, incoming) {
   return result;
 }
 function mergeProjectMemory(existing, incoming) {
-  const merged = deepMerge2(
+  const merged = deepMerge3(
     existing,
     incoming
   );
@@ -63539,18 +63681,22 @@ var HELP_TOKENS = /* @__PURE__ */ new Set(["--help", "-h", "help"]);
 var MIN_WORKER_COUNT = 1;
 var MAX_WORKER_COUNT = 20;
 var TEAM_HELP = `
-Usage: omc team [N:agent-type] "<task description>"
+Usage: omc team [N:agent-type[:role]] "<task description>"
        omc team status <team-name>
        omc team shutdown <team-name> [--force]
        omc team api <operation> [--input <json>] [--json]
        omc team api --help
 
 Examples:
-  omc team 3:executor "fix failing tests"
-  omc team 2:claude "build the auth module"
+  omc team 3:claude "fix failing tests"
+  omc team 2:codex:architect "design auth system"
+  omc team 1:gemini:executor "implement feature"
   omc team status fix-failing-tests
   omc team shutdown fix-failing-tests
   omc team api send-message --input '{"team_name":"my-team","from_worker":"worker-1","to_worker":"leader-fixed","body":"ACK"}' --json
+
+Roles (optional): architect, executor, planner, analyst, critic, debugger, verifier,
+  code-reviewer, security-reviewer, test-engineer, build-fixer, designer, writer, scientist
 `;
 var TEAM_API_HELP = `
 Usage: omc team api <operation> [--input <json>] [--json]
@@ -63646,7 +63792,8 @@ function parseTeamArgs(tokens) {
     }
   }
   const first = filteredArgs[0] || "";
-  const match = first.match(/^(\d+)(?::([a-z][a-z0-9-]*))?$/i);
+  const match = first.match(/^(\d+)(?::([a-z][a-z0-9-]*)(?::([a-z][a-z0-9-]*))?)?$/i);
+  let role;
   if (match) {
     const count = Number.parseInt(match[1], 10);
     if (!Number.isFinite(count) || count < MIN_WORKER_COUNT || count > MAX_WORKER_COUNT) {
@@ -63654,6 +63801,7 @@ function parseTeamArgs(tokens) {
     }
     workerCount = count;
     if (match[2]) agentType = match[2];
+    if (match[3]) role = match[3];
     filteredArgs.shift();
   }
   const task = filteredArgs.join(" ").trim();
@@ -63661,7 +63809,7 @@ function parseTeamArgs(tokens) {
     throw new Error('Usage: omc team [N:agent-type] "<task description>"');
   }
   const teamName = slugifyTask(task);
-  return { workerCount, agentType, task, teamName, json };
+  return { workerCount, agentType, role, task, teamName, json };
 }
 function sampleValueForField(field) {
   switch (field) {
@@ -63814,6 +63962,11 @@ async function handleTeamStart(parsed, cwd2) {
       owner: `worker-${i + 1}`
     });
   }
+  let rolePrompt;
+  if (parsed.role) {
+    const { loadAgentPrompt: loadAgentPrompt2 } = await Promise.resolve().then(() => (init_utils(), utils_exports));
+    rolePrompt = loadAgentPrompt2(parsed.role);
+  }
   const { isRuntimeV2Enabled: isRuntimeV2Enabled2 } = await Promise.resolve().then(() => (init_runtime_v2(), runtime_v2_exports));
   if (isRuntimeV2Enabled2()) {
     const { startTeamV2: startTeamV22, monitorTeamV2: monitorTeamV22 } = await Promise.resolve().then(() => (init_runtime_v2(), runtime_v2_exports));
@@ -63823,7 +63976,8 @@ async function handleTeamStart(parsed, cwd2) {
       workerCount: parsed.workerCount,
       agentTypes: agentTypes2,
       tasks,
-      cwd: cwd2
+      cwd: cwd2,
+      ...rolePrompt ? { roleName: parsed.role, rolePrompt } : {}
     });
     if (parsed.json) {
       const snapshot3 = await monitorTeamV22(runtime2.teamName, cwd2);

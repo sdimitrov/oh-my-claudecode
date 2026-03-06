@@ -182,6 +182,8 @@ export interface StartTeamV2Config {
   agentTypes: string[];
   tasks: Array<{ subject: string; description: string; owner?: string; blocked_by?: string[] }>;
   cwd: string;
+  roleName?: string;
+  rolePrompt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -482,6 +484,7 @@ export async function startTeamV2(config: StartTeamV2Config): Promise<TeamRuntim
         id: String(idx + 1), subject: t.subject, description: t.description,
       })),
       cwd: leaderCwd,
+      ...(config.rolePrompt ? { bootstrapInstructions: config.rolePrompt } : {}),
     });
   }
 

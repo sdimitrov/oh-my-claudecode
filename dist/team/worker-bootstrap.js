@@ -144,7 +144,7 @@ ${agentTypeGuidance(agentType)}
 You MUST call \`omc team api transition-task-status\` to mark your task as "completed" or "failed" before exiting.
 If you skip this step, the leader cannot track your work and the task will appear stuck.
 
-${bootstrapInstructions ? `## Additional Instructions\n${bootstrapInstructions}\n` : ''}`;
+${bootstrapInstructions ? `## Role Context\n${bootstrapInstructions}\n` : ''}`;
 }
 /**
  * Write the initial inbox file for a worker.

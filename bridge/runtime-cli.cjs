@@ -1062,7 +1062,7 @@ ${agentTypeGuidance(agentType)}
 You MUST call \`omc team api transition-task-status\` to mark your task as "completed" or "failed" before exiting.
 If you skip this step, the leader cannot track your work and the task will appear stuck.
 
-${bootstrapInstructions ? `## Additional Instructions
+${bootstrapInstructions ? `## Role Context
 ${bootstrapInstructions}
 ` : ""}`;
 }
@@ -3692,7 +3692,8 @@ async function startTeamV2(config) {
         subject: t.subject,
         description: t.description
       })),
-      cwd: leaderCwd
+      cwd: leaderCwd,
+      ...config.rolePrompt ? { bootstrapInstructions: config.rolePrompt } : {}
     });
   }
   const session = await createTeamSession(sanitized, 0, leaderCwd);

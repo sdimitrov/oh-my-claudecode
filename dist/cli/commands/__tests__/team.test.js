@@ -165,7 +165,7 @@ describe('teamCommand api operations', () => {
         try {
             process.env.OMC_TEAM_WORKER = 'demo-team/worker-1';
             const logs = await captureLog(() => teamCommand(['1:executor', 'do work']));
-            expect(logs[0]).toContain('omc team [N:agent-type]');
+            expect(logs[0]).toContain('omc team [N:agent-type[:role]]');
             expect(process.exitCode).toBe(1);
         }
         finally {
