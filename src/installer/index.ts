@@ -1074,7 +1074,7 @@ export function install(options: InstallOptions = {}): InstallResult {
         log(`  Bootstrapped unified MCP registry: ${mcpSync.result.registryPath}`);
       }
       if (mcpSync.result.claudeChanged) {
-        log(`  Synced ${mcpSync.result.serverNames.length} MCP server(s) into settings.json`);
+        log(`  Synced ${mcpSync.result.serverNames.length} MCP server(s) into Claude MCP config: ${mcpSync.result.claudeConfigPath}`);
       }
       if (mcpSync.result.codexChanged) {
         log(`  Synced ${mcpSync.result.serverNames.length} MCP server(s) into Codex config: ${mcpSync.result.codexConfigPath}`);
