@@ -1,20 +1,10 @@
-/**
- * Regression tests for race condition bug fixes.
- *
- * BUG 1: shared-state updateSharedTask has no file locking
- * BUG 2: git-worktree removeWorkerWorktree has unlocked metadata update
- * BUG 3: team-ops teamCreateTask has race on task ID generation
- * BUG 4: generateJobId not collision-safe
- */
-
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { execFileSync } from 'child_process';
 
-// ---------------------------------------------------------------------------
-
+describe('git-worktree removeWorkerWorktree locking', () => {
   let repoDir: string;
   const teamName = 'lock-test-wt';
 
@@ -70,7 +60,3 @@ import { execFileSync } from 'child_process';
     expect(remaining[0].workerName).toBe('worker-b');
   });
 });
-
-// ---------------------------------------------------------------------------
-// BUG 3: team-ops teamCreateTask must use locking for task ID generation
-// ---------------------------------------------------------------------------
