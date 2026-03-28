@@ -79,14 +79,60 @@ function readSessionSummary(
 }
 
 /**
+ * Track the timestamp of the last spawned session-summary process to prevent
+ * unbounded accumulation of detached processes when summarization takes >60s.
+ */
+let lastSummarySpawnTimestamp = 0;
+
+/**
+ * Track the PID of the spawned session-summary child process.
+ * Before spawning a new process, we check if this PID is still alive
+ * using process.kill(pid, 0). This prevents process accumulation even
+ * when summarization runs longer than the timestamp-based throttle window.
+ */
+let summaryProcessPid: number | null = null;
+
+/** @internal Reset spawn guard — used by tests only. */
+export function _resetSummarySpawnTimestamp(): void {
+  lastSummarySpawnTimestamp = 0;
+  summaryProcessPid = null;
+}
+
+/** @internal Get the tracked summary process PID — used by tests only. */
+export function _getSummaryProcessPid(): number | null {
+  return summaryProcessPid;
+}
+
+/**
  * Spawn the session-summary script in the background to generate/update summary.
  * Fire-and-forget: does not block HUD rendering.
+ * Guards against duplicate spawns by tracking the last spawn timestamp.
  */
 function spawnSessionSummaryScript(
   transcriptPath: string,
   stateDir: string,
   sessionId: string,
 ): void {
+  // Check if a previously spawned summary process is still alive.
+  // This prevents accumulation of detached processes when summarization
+  // takes longer than the timestamp-based throttle window.
+  if (summaryProcessPid !== null) {
+    try {
+      process.kill(summaryProcessPid, 0);
+      // Process is still alive — skip spawning a new one
+      return;
+    } catch {
+      // Process is dead (ESRCH) — clear PID and allow respawn
+      summaryProcessPid = null;
+    }
+  }
+
+  // Secondary guard: prevent rapid re-spawns via timestamp (within 120s).
+  const now = Date.now();
+  if (now - lastSummarySpawnTimestamp < 120_000) {
+    return;
+  }
+  lastSummarySpawnTimestamp = now;
   // Resolve the script path relative to this file's location
   // In compiled output: dist/hud/index.js -> ../../scripts/session-summary.mjs
   const thisDir = dirname(fileURLToPath(import.meta.url));
@@ -115,8 +161,10 @@ function spawnSessionSummaryScript(
         env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: "session-summary" },
       },
     );
+    summaryProcessPid = child.pid ?? null;
     child.unref();
   } catch (error) {
+    summaryProcessPid = null;
     if (process.env.OMC_DEBUG) {
       console.error(
         "[HUD] Failed to spawn session-summary:",
@@ -147,11 +195,6 @@ async function calculateSessionHealth(
  */
 async function main(watchMode = false, skipInit = false): Promise<void> {
   try {
-    // Initialize HUD state (cleanup stale/orphaned tasks)
-    if (!skipInit) {
-      await initializeHUDState();
-    }
-
     // Read stdin from Claude Code
     const previousStdinCache = readStdinCache();
     let stdin = await readStdin();
@@ -175,6 +218,12 @@ async function main(watchMode = false, skipInit = false): Promise<void> {
     }
 
     const cwd = resolveToWorktreeRoot(stdin.cwd || undefined);
+
+    // Initialize HUD state (cleanup stale/orphaned tasks)
+    // Must happen after cwd resolution so cleanup targets the correct project directory
+    if (!skipInit) {
+      await initializeHUDState(cwd);
+    }
 
     // Read configuration (before transcript parsing so we can use staleTaskThresholdMinutes)
     // Clone to avoid mutating shared DEFAULT_HUD_CONFIG when applying runtime width detection

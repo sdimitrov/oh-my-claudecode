@@ -80,10 +80,6 @@ export {
   quickTierForAgent,
 } from './router.js';
 
-// Import for local use in routeAndAdaptTask
-import { routeWithEscalation as _routeWithEscalation } from './router.js';
-import { adaptPromptForTier as _adaptPromptForTier } from './prompts/index.js';
-
 // Re-export prompt adaptations
 export {
   adaptPromptForTier,
@@ -95,6 +91,10 @@ export {
   TIER_TASK_INSTRUCTIONS,
 } from './prompts/index.js';
 
+// Local imports for routeAndAdaptTask convenience function
+import { routeWithEscalation } from './router.js';
+import { adaptPromptForTier } from './prompts/index.js';
+
 /**
  * Convenience function to route and adapt prompt in one call
  */
@@ -103,13 +103,13 @@ export function routeAndAdaptTask(
   agentType?: string,
   previousFailures?: number
 ): { decision: import('./types.js').RoutingDecision; adaptedPrompt: string } {
-  const decision = _routeWithEscalation({
+  const decision = routeWithEscalation({
     taskPrompt,
     agentType,
     previousFailures,
   });
 
-  const adaptedPrompt = _adaptPromptForTier(taskPrompt, decision.tier);
+  const adaptedPrompt = adaptPromptForTier(taskPrompt, decision.tier);
 
   return {
     decision,
